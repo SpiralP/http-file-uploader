@@ -19,7 +19,7 @@
           };
         in
         {
-          default = pkgs.rustPlatform.buildRustPackage {
+          default = pkgs.rustPlatform.buildRustPackage rec {
             pname = rustManifest.package.name;
             version = rustManifest.package.version + revSuffix;
 
@@ -42,6 +42,8 @@
                 rust-analyzer
                 (rustfmt.override { asNightly = true; })
               ]) else [ ]);
+
+            meta.mainProgram = pname;
           };
         }
       );
