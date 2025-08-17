@@ -38,6 +38,7 @@ impl reject::Reject for ServerError {}
 
 #[tokio::main]
 async fn main() {
+    let upload_token = env::var("UPLOAD_TOKEN").expect("UPLOAD_TOKEN must be set");
     let port = env::var("PORT")
         .unwrap_or_else(|_| "3030".to_string())
         .parse::<u16>()
@@ -65,6 +66,17 @@ async fn main() {
             Err(warp::reject::not_found())
         })
         .and(warp::path::end())
+        .and(warp::header::header("authorization"))
+        .and_then(move |ext: String, auth: String| {
+            let upload_token = upload_token.clone();
+            async move {
+                if auth == format!("Bearer {upload_token}") {
+                    Ok(ext)
+                } else {
+                    Err(warp::reject::not_found())
+                }
+            }
+        })
         .and(warp::body::aggregate())
         .and_then(|ext, stream| async move {
             upload_file(ext, stream).await.map_err(|e| {
