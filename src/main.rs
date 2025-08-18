@@ -1,9 +1,9 @@
 mod logger;
 mod naming;
 
-use std::{env, path::PathBuf, sync::LazyLock};
+use std::{env, path::PathBuf, sync::LazyLock, time::Duration};
 
-use anyhow::{Result, ensure};
+use anyhow::Result;
 use bytes::Buf;
 use tempfile::TempDir;
 use tokio::{
@@ -11,7 +11,7 @@ use tokio::{
     io::{AsyncWriteExt, BufWriter},
     sync::Mutex,
 };
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 use warp::{
     Filter,
     filters::log::log,
@@ -19,6 +19,8 @@ use warp::{
 };
 
 use crate::naming::get_random_word_string;
+
+const RETENTION_DURATION: Duration = Duration::from_secs(60 * 60 * 24 * 7); // 7 days
 
 static TEMP_DIR: LazyLock<Mutex<Option<TempDir>>> = LazyLock::new(|| {
     Mutex::new(Some(
@@ -138,32 +140,39 @@ async fn main() {
 async fn upload_file(ext: String, mut buf: impl Buf) -> Result<impl warp::Reply> {
     let temp_dir = get_temp_dir_path().await;
 
-    let mut filename;
-    let mut filepath;
-    let mut tries = 0;
-    loop {
-        ensure!(tries < 10);
-        filename = format!("{}.{ext}", get_random_word_string());
-        filepath = temp_dir.join(&filename);
-        if !filepath.exists() {
-            break;
-        }
-        debug!("file {filename} already exists, trying again.. {tries}");
-        tries += 1;
+    let filename = format!("{}.{ext}", get_random_word_string());
+    let filepath = temp_dir.join(&filename);
+    if filepath.exists() {
+        warn!("file {filename} already exists, replacing!!");
     }
     debug!("writing {filename}");
 
-    let f = File::create(filepath).await?;
-    let mut writer = BufWriter::new(f);
-    let mut wrote = 0;
-    while buf.has_remaining() {
-        let chunk = buf.chunk();
-        let len = chunk.len();
-        writer.write_all(chunk).await?;
-        buf.advance(len);
-        wrote += len;
-    }
-    writer.flush().await?;
-    debug!("wrote {wrote} bytes to {filename}");
+    let bytes_written = {
+        let f = File::create(filepath).await?;
+        let mut writer = BufWriter::new(f);
+        let mut bytes_written = 0;
+        while buf.has_remaining() {
+            let chunk = buf.chunk();
+            let len = chunk.len();
+            writer.write_all(chunk).await?;
+            buf.advance(len);
+            bytes_written += len;
+        }
+        writer.flush().await?;
+        bytes_written
+    };
+    debug!("wrote {bytes_written} bytes to {filename}");
+
+    tokio::spawn({
+        let filename = filename.clone();
+        async move {
+            tokio::time::sleep(RETENTION_DURATION).await;
+            info!("Deleting {filename}");
+            if let Err(e) = tokio::fs::remove_file(temp_dir.join(&filename)).await {
+                warn!("Failed to delete file {filename}: {e}");
+            }
+        }
+    });
+
     Ok(filename)
 }

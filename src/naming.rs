@@ -1,14 +1,57 @@
-use rand::seq::IndexedRandom;
+use std::{
+    sync::{LazyLock, Mutex},
+    time::Instant,
+};
+
+use rand::seq::SliceRandom;
+use tracing::{debug, warn};
+
+static COMBINATIONS: LazyLock<Mutex<Vec<[usize; 3]>>> = LazyLock::new(|| {
+    let start_time = Instant::now();
+
+    let mut combinations = Vec::new();
+
+    for i in 0..WORD_GROUPS[0].len() {
+        for j in 0..WORD_GROUPS[1].len() {
+            for k in 0..WORD_GROUPS[2].len() {
+                combinations.push([i, j, k]);
+            }
+        }
+    }
+
+    combinations.shuffle(&mut rand::rng());
+
+    debug!(
+        "Time taken to generate combinations: {:?}",
+        start_time.elapsed()
+    );
+
+    Mutex::new(combinations)
+});
+
+static CURRENT_INDEX: LazyLock<Mutex<usize>> = LazyLock::new(|| Mutex::new(0));
 
 pub fn get_random_word_string() -> String {
-    let mut rng = rand::rng();
+    let combinations = COMBINATIONS.lock().unwrap();
+    let mut current_index = CURRENT_INDEX.lock().unwrap();
 
-    let words = WORD_GROUPS
-        .iter()
-        .map(|&group| *group.choose(&mut rng).unwrap())
-        .collect::<Vec<_>>();
+    if let Some(combination) = combinations.get(*current_index) {
+        *current_index += 1;
+        [
+            WORD_GROUPS[0][combination[0]],
+            WORD_GROUPS[1][combination[1]],
+            WORD_GROUPS[2][combination[2]],
+        ]
+        .join("-")
+    } else {
+        warn!("No more combinations available, wrapping around");
 
-    words.join("-")
+        *current_index = 0;
+        drop(combinations);
+        drop(current_index);
+
+        get_random_word_string()
+    }
 }
 
 const WORD_GROUPS: &[&[&str]] = &[
