@@ -2,15 +2,13 @@ mod clipboard;
 
 use std::{env::args, sync::LazyLock};
 
-use anyhow::{Context, Error, Result, bail};
-use futures::{StreamExt, stream};
-use http_file_uploader::{guess_ext_from_reader_peek, logger, upload};
+use anyhow::{Context, Result, bail};
+use http_file_uploader::{guess_ext_from_reader_peek, logger, upload, upload_files};
 use mime::{
     IMAGE_BMP, IMAGE_JPEG, IMAGE_PNG, TEXT_HTML, TEXT_HTML_UTF_8, TEXT_PLAIN, TEXT_PLAIN_UTF_8,
 };
 use mime_guess::Mime;
 use reqwest::Body;
-use tokio::{fs::File, io::BufReader};
 use tokio_util::io::ReaderStream;
 use tracing::{debug, warn};
 use url::Url;
@@ -134,7 +132,7 @@ async fn main() -> Result<()> {
 
         let output = get_clipboard_output(mime.as_ref()).await?;
         let output = output.trim();
-        let file_paths = output
+        let paths = output
             .split_ascii_whitespace()
             .map(|s| {
                 let url: Url = s
@@ -163,55 +161,7 @@ async fn main() -> Result<()> {
             })
             .collect::<Vec<_>>();
 
-        let _ = stream::iter(file_paths)
-            .map(|path| async move {
-                let result = {
-                    let path = path.to_path_buf();
-                    async move {
-                        let maybe_ext = if let Some(ext) = path.extension() {
-                            // use ext from path
-                            let ext = ext.to_str().with_context(|| {
-                                format!("failed to convert extension to str: {ext:?}")
-                            })?;
-                            Some(ext.to_string())
-                        } else {
-                            None
-                        };
-
-                        let f =
-                            BufReader::new(File::open(&path).await.context("failed to open file")?);
-
-                        let (ext, body) = if let Some(ext) = maybe_ext {
-                            (ext, Body::wrap_stream(ReaderStream::new(f)))
-                        } else {
-                            debug!("peeking file to see if it's utf8...");
-                            // peek file to see if it's text, else use "bin"
-
-                            let (ext, stream) = guess_ext_from_reader_peek(f).await?;
-                            (ext, Body::wrap_stream(stream))
-                        };
-
-                        upload(body, &ext).await.context("failed to upload")?;
-
-                        Ok::<_, Error>(())
-                    }
-                }
-                .await;
-
-                (path, result)
-            })
-            .buffer_unordered(4)
-            .filter_map(|(path, result)| async move {
-                match result {
-                    Ok(v) => Some(v),
-                    Err(e) => {
-                        warn!("Failed to upload file {path:?} {e:?}");
-                        None
-                    }
-                }
-            })
-            .collect::<Vec<_>>()
-            .await;
+        upload_files(paths).await?;
     }
 
     Ok(())

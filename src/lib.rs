@@ -1,14 +1,18 @@
 pub mod logger;
 
-use std::env;
+use std::{env, path::PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Error, Result};
 use bytes::Bytes;
+use futures::StreamExt;
 use reqwest::Body;
-use tokio::io::{AsyncRead, AsyncReadExt};
-use tokio_stream::{Stream, StreamExt};
+use tokio::{
+    fs::File,
+    io::{AsyncRead, AsyncReadExt, BufReader, stdin},
+};
+use tokio_stream::Stream;
 use tokio_util::io::ReaderStream;
-use tracing::debug;
+use tracing::{debug, warn};
 
 pub async fn upload(body: Body, ext: &str) -> Result<()> {
     let upload_token = env::var("UPLOAD_TOKEN").context("UPLOAD_TOKEN must be set")?;
@@ -28,6 +32,68 @@ pub async fn upload(body: Body, ext: &str) -> Result<()> {
     let res = res.error_for_status()?;
     let text = res.text().await?;
     println!("{url}/{text}");
+
+    Ok(())
+}
+
+pub async fn upload_files(paths: Vec<PathBuf>) -> Result<()> {
+    let _ = tokio_stream::iter(paths)
+        .map(|path| async move {
+            let result = {
+                let path = path.to_path_buf();
+                async move {
+                    // handle stdin from `upload`
+                    let (ext, body) = if path.to_string_lossy() == "-" {
+                        let stdin = stdin();
+                        let stdin = BufReader::new(stdin);
+                        let (ext, stream) = guess_ext_from_reader_peek(stdin).await?;
+                        (ext, Body::wrap_stream(stream))
+                    } else {
+                        let maybe_ext = if let Some(ext) = path.extension() {
+                            // use ext from path
+                            let ext = ext.to_str().with_context(|| {
+                                format!("failed to convert extension to str: {ext:?}")
+                            })?;
+                            Some(ext.to_string())
+                        } else {
+                            None
+                        };
+
+                        let f =
+                            BufReader::new(File::open(&path).await.context("failed to open file")?);
+
+                        if let Some(ext) = maybe_ext {
+                            (ext, Body::wrap_stream(ReaderStream::new(f)))
+                        } else {
+                            debug!("peeking file to see if it's utf8...");
+                            // peek file to see if it's text, else use "bin"
+
+                            let (ext, stream) = guess_ext_from_reader_peek(f).await?;
+                            (ext, Body::wrap_stream(stream))
+                        }
+                    };
+
+                    upload(body, &ext).await.context("failed to upload")?;
+
+                    Ok::<_, Error>(())
+                }
+            }
+            .await;
+
+            (path, result)
+        })
+        .buffer_unordered(4)
+        .filter_map(|(path, result)| async move {
+            match result {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    warn!("Failed to upload file {path:?} {e:?}");
+                    None
+                }
+            }
+        })
+        .collect::<Vec<_>>()
+        .await;
 
     Ok(())
 }

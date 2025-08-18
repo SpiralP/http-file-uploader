@@ -1,4 +1,4 @@
-use std::sync::Once;
+use std::{io, sync::Once};
 
 use tracing_subscriber::{EnvFilter, util::SubscriberInitExt};
 
@@ -25,6 +25,7 @@ pub fn initialize(debug: bool, module_filter: Option<&str>) {
             .with_thread_names(false)
             .with_ansi(true)
             .without_time()
+            .with_writer(io::stderr)
             .finish();
 
         subscriber.init();
