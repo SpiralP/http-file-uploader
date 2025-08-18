@@ -6,7 +6,7 @@ use std::{
 use rand::seq::SliceRandom;
 use tracing::{debug, warn};
 
-static COMBINATIONS: LazyLock<Mutex<Vec<[usize; 3]>>> = LazyLock::new(|| {
+static COMBINATIONS: LazyLock<Mutex<Vec<[u16; 3]>>> = LazyLock::new(|| {
     let start_time = Instant::now();
 
     let mut combinations = Vec::new();
@@ -14,7 +14,7 @@ static COMBINATIONS: LazyLock<Mutex<Vec<[usize; 3]>>> = LazyLock::new(|| {
     for i in 0..WORD_GROUPS[0].len() {
         for j in 0..WORD_GROUPS[1].len() {
             for k in 0..WORD_GROUPS[2].len() {
-                combinations.push([i, j, k]);
+                combinations.push([i as u16, j as u16, k as u16]);
             }
         }
     }
@@ -38,9 +38,9 @@ pub fn get_random_word_string() -> String {
     if let Some(combination) = combinations.get(*current_index) {
         *current_index += 1;
         [
-            WORD_GROUPS[0][combination[0]],
-            WORD_GROUPS[1][combination[1]],
-            WORD_GROUPS[2][combination[2]],
+            WORD_GROUPS[0][combination[0] as usize],
+            WORD_GROUPS[1][combination[1] as usize],
+            WORD_GROUPS[2][combination[2] as usize],
         ]
         .join("-")
     } else {
