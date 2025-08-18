@@ -35,7 +35,12 @@
               allowBuiltinFetchGit = true;
             };
 
+            buildInputs = with pkgs; [
+              openssl
+            ];
+
             nativeBuildInputs = with pkgs; [
+              pkg-config
             ] ++ (if dev then
               with pkgs; ([
                 clippy

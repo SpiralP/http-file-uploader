@@ -3,7 +3,7 @@ mod naming;
 
 use std::{env, path::PathBuf, sync::LazyLock, time::Duration};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use bytes::Buf;
 use tempfile::TempDir;
 use tokio::{
@@ -39,12 +39,12 @@ struct ServerError;
 impl reject::Reject for ServerError {}
 
 #[tokio::main]
-async fn main() {
-    let upload_token = env::var("UPLOAD_TOKEN").expect("UPLOAD_TOKEN must be set");
+async fn main() -> Result<()> {
+    let upload_token = env::var("UPLOAD_TOKEN").context("UPLOAD_TOKEN must be set")?;
     let port = env::var("PORT")
         .unwrap_or_else(|_| "3030".to_string())
         .parse::<u16>()
-        .expect("PORT must be a valid u16");
+        .context("PORT must be a valid u16")?;
 
     logger::initialize(true, Some(module_path!()));
 
@@ -135,6 +135,8 @@ async fn main() {
     })
     .run()
     .await;
+
+    Ok(())
 }
 
 async fn upload_file(ext: String, mut buf: impl Buf) -> Result<impl warp::Reply> {
