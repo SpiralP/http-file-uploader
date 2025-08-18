@@ -82,7 +82,7 @@ async fn main() -> Result<()> {
         .and(warp::body::aggregate())
         .and_then(|ext, stream| async move {
             upload_file(ext, stream).await.map_err(|e| {
-                eprintln!("Error uploading file: {e}");
+                warn!("Error uploading file: {e}");
                 warp::reject::custom(ServerError)
             })
         });
@@ -129,7 +129,7 @@ async fn main() -> Result<()> {
 
         if let Some(temp_dir) = TEMP_DIR.lock().await.take() {
             if let Err(e) = temp_dir.close() {
-                eprintln!("Failed to clean up temporary directory: {e}");
+                warn!("Failed to clean up temporary directory: {e}");
             }
         }
     })

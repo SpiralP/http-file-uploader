@@ -9,7 +9,12 @@ pub fn initialize(debug: bool, module_filter: Option<&str>) {
 
         let mut filter = EnvFilter::from_default_env();
         if let Some(module) = module_filter {
-            filter = filter.add_directive(format!("{module}={level}").parse().unwrap());
+            let local_modules = ["http_file_uploader", "upload_from_clipboard", "upload"];
+            assert!(local_modules.contains(&module), "update hardcoded list!!");
+
+            for module in local_modules {
+                filter = filter.add_directive(format!("{module}={level}").parse().unwrap());
+            }
         } else {
             filter = filter.add_directive(level.parse().unwrap());
         }
