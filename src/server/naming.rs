@@ -21,15 +21,17 @@ static COMBINATIONS: LazyLock<Mutex<Vec<[u16; 3]>>> = LazyLock::new(|| {
 
     combinations.shuffle(&mut rand::rng());
 
-    debug!(
-        "Time taken to generate combinations: {:?}",
-        start_time.elapsed()
-    );
+    debug!("took {:?} to compute combinations", start_time.elapsed());
 
     Mutex::new(combinations)
 });
 
 static CURRENT_INDEX: LazyLock<Mutex<usize>> = LazyLock::new(|| Mutex::new(0));
+
+pub fn init_combinations() {
+    drop(COMBINATIONS.lock().unwrap());
+    drop(CURRENT_INDEX.lock().unwrap());
+}
 
 pub fn get_random_word_string() -> String {
     let combinations = COMBINATIONS.lock().unwrap();
