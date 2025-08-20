@@ -3,7 +3,7 @@ mod wl_paste;
 
 use std::process::Stdio;
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Result, ensure};
 use mime_guess::Mime;
 use tokio::{
     io::{AsyncReadExt, BufReader},
@@ -47,7 +47,7 @@ pub async fn get_existing_mimes() -> Result<Vec<Mime>> {
     })
     .await?;
 
-    let existing_mimes = parse_existing_mimes(stdout).context("failed to parse existing mimes")?;
+    let existing_mimes = parse_existing_mimes(stdout);
 
     Ok(existing_mimes)
 }
