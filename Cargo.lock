@@ -459,6 +459,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "futures",
+ "headers",
  "infer",
  "mime",
  "mime_guess",

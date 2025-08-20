@@ -14,7 +14,9 @@ use warp::{
     reply::Reply,
 };
 
-use crate::server::{naming::get_random_word_string, utils::get_temp_dir_path};
+use crate::server::{
+    naming::get_random_word_string, postprocessing::process, utils::get_temp_dir_path,
+};
 
 const RETENTION_DURATION: Duration = Duration::from_secs(60 * 60 * 24 * 7); // 7 days
 
@@ -24,7 +26,13 @@ struct ServerError;
 impl reject::Reject for ServerError {}
 
 pub fn get_routes(dir: PathBuf, upload_token: String) -> BoxedFilter<(impl Reply,)> {
-    let file_route = warp::fs::dir(dir.to_path_buf());
+    let file_route = warp::fs::dir(dir.to_path_buf()).and_then(|f: warp::fs::File| async move {
+        let path = f.path().to_path_buf();
+        process(f).await.map_err(move |e| {
+            warn!("Error postprocessing {path:?}: {e}");
+            warp::reject::custom(ServerError)
+        })
+    });
     let upload_route = warp::post()
         .and(warp::path::param())
         .and_then(|param: String| async move {
