@@ -1,6 +1,10 @@
 pub mod logger;
 
-use std::{env, path::PathBuf};
+use std::{
+    env,
+    io::{IsTerminal, stdout},
+    path::PathBuf,
+};
 
 use anyhow::{Context, Error, Result};
 use bytes::Bytes;
@@ -31,7 +35,12 @@ pub async fn upload(body: Body, ext: &str) -> Result<()> {
         .await?;
     let res = res.error_for_status()?;
     let text = res.text().await?;
-    println!("{url}/{text}");
+
+    if stdout().is_terminal() {
+        println!("{url}/{text}");
+    } else {
+        print!("{url}/{text}");
+    }
 
     Ok(())
 }
