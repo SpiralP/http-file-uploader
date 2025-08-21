@@ -4,6 +4,7 @@ mod server;
 use std::env;
 
 use anyhow::{Context, Result};
+use futures::future;
 
 use crate::server::run_server;
 
@@ -17,7 +18,7 @@ async fn main() -> Result<()> {
 
     logger::initialize(true, Some(module_path!()));
 
-    run_server(port, upload_token).await;
+    run_server(port, upload_token, future::pending()).await;
 
     Ok(())
 }
