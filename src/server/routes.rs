@@ -39,7 +39,7 @@ pub fn get_routes(dir: PathBuf, upload_token: String) -> BoxedFilter<(impl Reply
             if let Some((before, ext)) = param.split_once('.') {
                 if before == "upload"
                     && !ext.is_empty()
-                    && ext.len() <= 5
+                    && ext.len() <= 10
                     && ext.chars().all(|c| c.is_ascii_alphanumeric())
                 {
                     return Ok(ext.to_string());
