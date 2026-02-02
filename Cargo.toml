@@ -15,7 +15,7 @@ rand = "=0.9.2"
 reqwest = { version = "=0.13.1", default-features = false, features = [
     "charset",
     "http2",
-    "rustls-tls",
+    "rustls",
     "stream",
     "gzip",
     "brotli",
