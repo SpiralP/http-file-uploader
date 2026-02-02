@@ -40,6 +40,7 @@
             ];
 
             nativeBuildInputs = with pkgs; [
+              cacert
               pkg-config
             ] ++ (if dev then
               with pkgs; ([
