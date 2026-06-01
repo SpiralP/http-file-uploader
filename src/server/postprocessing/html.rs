@@ -16,11 +16,16 @@ pub async fn process_html(f: warp::fs::File) -> Result<Response> {
         .replace("%TITLE%", title)
         .replace("%DESCRIPTION%", description);
 
-    let html = if contents.contains("<html") && contents.contains("<head>") {
-        let html_head = html_head.replace("rgb(31, 31, 31)", "#121212");
-        contents
-            .replace("<head>", &format!("<head>{html_head}"))
-            .replace("background-color:#ffffff;", "background-color:#121212;")
+    let html = if contents.contains("<html") {
+        let with_head = if contents.contains("<head>") {
+            contents.replace("<head>", &format!("<head>{html_head}"))
+        } else {
+            contents.replace("<body>", &format!("<head>{html_head}</head><body>"))
+        };
+        with_head
+            .replace("background-color: #ffffff;", "")
+            .replace("background-color:#ffffff;", "")
+            .replace("color: #000000;", "color: #ffffff;")
             .replace("color:#000000;", "color:#ffffff;")
             .replace(
                 "font-family:monospace",
