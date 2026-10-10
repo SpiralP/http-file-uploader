@@ -20,7 +20,7 @@ reqwest = { version = "=0.13.5", features = [
     "deflate",
 ] }
 tempfile = "=3.27.0"
-tokio = { version = "=1.53.1", features = ["full"] }
+tokio = { version = "=1.53.2", features = ["full"] }
 tokio-stream = { version = "=0.1.19", features = ["full"] }
 tokio-util = { version = "=0.7.19", features = ["full"] }
 tracing = "=0.1.44"
